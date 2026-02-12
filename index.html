@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
     <title>Premier PDF Editor · browser foundation</title>
     <!-- Premium fonts & icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -322,6 +322,105 @@
         [data-tooltip]:hover:before {
             opacity: 1;
         }
+
+        /* ----- RESPONSIVE ADAPTATIONS (ONLY LAYOUT/SPACING) ----- */
+        @media screen and (max-width: 1024px) {
+            .workspace {
+                padding: 0.75rem 1rem;
+                gap: 1rem;
+            }
+            .left-panel {
+                flex-basis: 220px;
+                padding: 1.2rem 0.8rem;
+            }
+            .right-panel {
+                flex-basis: 240px;
+                padding: 1.2rem 0.8rem;
+            }
+            .toolbar {
+                gap: 0.2rem;
+            }
+            .tool-btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            body {
+                overflow: auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            .workspace {
+                flex-direction: column;
+                padding: 1rem;
+                height: auto;
+                overflow: visible;
+            }
+            .left-panel {
+                flex: 0 0 auto;
+                width: 100%;
+                max-width: 100%;
+                order: 1;
+            }
+            .center-panel {
+                width: 100%;
+                order: 2;
+                margin-bottom: 0;
+            }
+            .right-panel {
+                flex: 0 0 auto;
+                width: 100%;
+                max-width: 100%;
+                order: 3;
+            }
+            .app-header {
+                flex-direction: column;
+                align-items: stretch;
+                height: auto;
+                padding: 0.75rem 1rem;
+            }
+            .logo-area {
+                justify-content: center;
+                margin-bottom: 0.5rem;
+            }
+            .toolbar {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .thumbnails-list {
+                max-height: 250px;
+            }
+            .canvas-toolbar {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                justify-content: center;
+            }
+            .page-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .tools-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .tool-btn {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.8rem;
+            }
+            .tool-btn i {
+                font-size: 0.9rem;
+            }
+            .logo-area {
+                font-size: 1rem;
+            }
+            .left-panel, .right-panel {
+                padding: 1rem 0.75rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -330,8 +429,8 @@
     <header class="app-header">
         <div class="logo-area">
             <i class="fas fa-file-pdf" style="color: #0f2b4b; font-size: 1.6rem;"></i>
-            <span>PDF<span style="font-weight: 300;">工作室</span> Pro</span>
-            <span class="badge" style="margin-left: 0.5rem;">v0.9 · browser</span>
+            <span>PDF Editor</span>
+            <span class="badge" style="margin-left: 0.5rem;"><i class="fas fa-laptop-code"></i> v0.9 · browser</span>
         </div>
         <div class="toolbar">
             <button class="tool-btn" id="open-pdf-btn" data-tooltip="Open PDF (Ctrl+O)"><i class="fas fa-folder-open"></i> Open</button>
@@ -404,9 +503,9 @@
             <div class="prop-group">
                 <div class="prop-title"><i class="fas fa-sliders-h"></i> PROPERTIES (MOCK)</div>
                 <div style="display:flex; flex-direction: column; gap:0.7rem;">
-                    <div><span style="font-weight:600;">Current tool:</span> <span id="current-tool-label">Select</span></div>
-                    <div><span style="font-weight:600;">Page size:</span> A4 (sim.)</div>
-                    <div><span style="font-weight:600;">Color space:</span> RGB</div>
+                    <div><span style="font-weight:600;"><i class="fas fa-tools"></i> Current tool:</span> <span id="current-tool-label">Select</span></div>
+                    <div><span style="font-weight:600;"><i class="fas fa-ruler"></i> Page size:</span> A4 (sim.)</div>
+                    <div><span style="font-weight:600;"><i class="fas fa-palette"></i> Color space:</span> RGB</div>
                     <hr>
                     <button class="tool-btn" id="ocr-button" style="background:#f1f5f9;"><i class="fas fa-eye"></i> OCR this page</button>
                     <button class="tool-btn" id="redact-btn" style="background:#fff1f0;"><i class="fas fa-redo-alt" style="color:#b91c1c;"></i> Redact (mock)</button>
@@ -429,7 +528,7 @@
                 </div>
             </div>
             <div class="prop-group">
-                <div class="prop-title">MERGE / SPLIT (MOCK)</div>
+                <div class="prop-title"><i class="fas fa-object-group"></i> MERGE / SPLIT (MOCK)</div>
                 <button class="tool-btn" id="merge-pdf"><i class="fas fa-merge"></i> Merge PDF</button>
                 <button class="tool-btn" id="split-pdf"><i class="fas fa-split"></i> Split range</button>
             </div>
@@ -504,41 +603,44 @@
                     pdfState.pageNum = 1;
                     pageCountSpan.textContent = pdfState.pageCount;
                     renderPage(pdfState.pageNum);
-                    generateThumbnails(pdf);    // mock style – but actually generates thumbnails using pdf.js
+                    generateThumbnails(pdf);
                 }).catch(err => {
                     alert('Failed to load PDF: ' + err);
                 });
             }
 
-            // --- THUMBNAILS (REAL RENDERING SMALL) ---
-            function generateThumbnails(pdf) {
+            // --- THUMBNAILS (FIXED: ORDERED SEQUENTIAL) ---
+            async function generateThumbnails(pdf) {
                 const thumbContainer = document.getElementById('thumbnail-list');
                 thumbContainer.innerHTML = '';
+                const pages = [];
                 for (let i = 1; i <= pdf.numPages; i++) {
-                    pdf.getPage(i).then(page => {
-                        const scale = 0.15;
-                        const viewport = page.getViewport({ scale });
-                        const canvas = document.createElement('canvas');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        canvas.className = 'thumb-canvas';
-                        page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise.then(() => {
-                            const thumbItem = document.createElement('div');
-                            thumbItem.className = 'thumbnail-item' + (i === pdfState.pageNum ? ' active' : '');
-                            thumbItem.dataset.page = i;
-                            thumbItem.innerHTML = `<span style="font-size:0.7rem;">${i}</span>`;
-                            thumbItem.prepend(canvas);
-                            thumbItem.addEventListener('click', (e) => {
-                                pdfState.pageNum = i;
-                                renderPage(i);
-                                // update active
-                                document.querySelectorAll('.thumbnail-item').forEach(el => el.classList.remove('active'));
-                                thumbItem.classList.add('active');
-                            });
-                            thumbContainer.appendChild(thumbItem);
-                        });
-                    });
+                    pages.push(pdf.getPage(i));
                 }
+                const resolvedPages = await Promise.all(pages);
+                resolvedPages.forEach((page, idx) => {
+                    const i = idx + 1;
+                    const scale = 0.15;
+                    const viewport = page.getViewport({ scale });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    canvas.className = 'thumb-canvas';
+                    page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise.then(() => {
+                        const thumbItem = document.createElement('div');
+                        thumbItem.className = 'thumbnail-item' + (i === pdfState.pageNum ? ' active' : '');
+                        thumbItem.dataset.page = i;
+                        thumbItem.innerHTML = `<span style="font-size:0.7rem;">${i}</span>`;
+                        thumbItem.prepend(canvas);
+                        thumbItem.addEventListener('click', (e) => {
+                            pdfState.pageNum = i;
+                            renderPage(i);
+                            document.querySelectorAll('.thumbnail-item').forEach(el => el.classList.remove('active'));
+                            thumbItem.classList.add('active');
+                        });
+                        thumbContainer.appendChild(thumbItem);
+                    });
+                });
             }
 
             // --- OPEN PDF (REAL) ---
@@ -594,7 +696,6 @@
 
             // --- CREATE PDF FROM IMAGE/TEXT (MOCK using jsPDF) ---
             document.getElementById('create-pdf-btn').addEventListener('click', () => {
-                // [MOCK] Creates a simple PDF with sample text via jspdf and loads it.
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 doc.text('This is a mock PDF created from editor.', 20, 20);
@@ -728,7 +829,6 @@
             });
 
             // --- load sample PDF on start (for demonstration) ---
-            // Use a simple PDF generated via jsPDF as a default demo.
             (function loadSample() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
@@ -746,25 +846,7 @@
                     alert('[MOCK] Search text across pages (placeholder).');
                 }
             });
-
-            // Dynamic tooltip for current tool
-            // All set.
         })();
     </script>
-
-    <!-- 
-        ============================================================================
-        PRODUCTION COMMENTARY:
-        - Real PDF rendering via PDF.js, file open, thumbnails, zoom, navigation.
-        - OCR is real using Tesseract.js on canvas (user consent implied).
-        - All advanced features (edit existing text/images, annotations persistence, 
-          forms, password, permissions, redaction, merge, split, export to Office, 
-          deterministic pagination) are MOCK PLACEHOLDERS due to browser limitations.
-        - Code is modularized within IIFE, state object, ready to extend.
-        - Premium UI with glassmorphism, tooltips, keyboard shortcuts.
-        - A4 print simulation via button.
-        - Extensible undo/redo stack foundation.
-        ============================================================================
-    -->
 </body>
 </html>
