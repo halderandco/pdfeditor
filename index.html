@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Premier PDF Editor · browser foundation</title>
+    <!-- Premium fonts & icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Core libraries: PDF.js, jsPDF, Tesseract OCR, FileSaver -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        /* ----- GLOBAL RESET & PREMIUM DESIGN TOKENS ----- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f6f8fb;
+            color: #1e293b;
+            line-height: 1.5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 0.9rem;
+        }
+
+        /* modern, clean shadows & borders */
+        .app-header, .left-panel, .right-panel, .canvas-toolbar, .thumbnail-item {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 1.5rem;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            flex: 0 0 60px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: #0f2b4b;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .tool-btn i {
+            font-size: 1rem;
+            color: #4b5563;
+        }
+
+        .tool-btn:hover {
+            background: rgba(15, 43, 75, 0.06);
+            color: #0f2b4b;
+        }
+
+        .tool-btn:hover i {
+            color: #0f2b4b;
+        }
+
+        .tool-btn.active {
+            background: #0f2b4b;
+            color: white;
+        }
+        .tool-btn.active i {
+            color: white;
+        }
+
+        /* main layout: left | center | right */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 1rem 1.5rem;
+            gap: 1.5rem;
+            background: #f1f5f9;
+        }
+
+        /* left panel: tools + thumbnails */
+        .left-panel {
+            flex: 0 0 260px;
+            border-radius: 20px;
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.02);
+        }
+
+        .tools-section h4, .thumbnails-section h4 {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #64748b;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.6rem;
+        }
+
+        .tool-icon {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.7rem 0.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.65rem;
+            color: #334155;
+            transition: 0.1s;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .tool-icon i {
+            font-size: 1.1rem;
+            color: #475569;
+        }
+        .tool-icon:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+        .tool-icon.active {
+            background: #e6f0ff;
+            border-color: #0f2b4b;
+        }
+        .tool-icon.active i {
+            color: #0f2b4b;
+        }
+
+        .thumbnails-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .thumbnail-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e9eef3;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .thumbnail-item.active {
+            border: 2px solid #0f2b4b;
+            background: #f8fafc;
+        }
+        .thumb-canvas {
+            border-radius: 6px;
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* center canvas area */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.03);
+            overflow: hidden;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .canvas-toolbar {
+            padding: 0.75rem 1.5rem;
+            background: white;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f1f5f9;
+            position: relative;
+            overflow: auto;
+            padding: 1rem;
+        }
+
+        #pdf-canvas {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            background: white;
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* right properties panel */
+        .right-panel {
+            flex: 0 0 280px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 1.5rem 1.2rem;
+            border: 1px solid rgba(255,255,255,0.6);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .prop-group {
+            background: white;
+            border-radius: 16px;
+            padding: 1rem;
+            border: 1px solid #f0f4f9;
+        }
+
+        .prop-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #4b5563;
+            letter-spacing: 0.03em;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        /* utility */
+        .badge {
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 0.5rem 0;
+        }
+
+        /* tooltips */
+        [data-tooltip] {
+            position: relative;
+            cursor: pointer;
+        }
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+            font-weight: 500;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        [data-tooltip]:hover:before {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- ========== PREMIUM PDF EDITOR – FOUNDATION (PRODUCTION MOCK) ========== -->
+    <!-- Header / Main toolbar -->
+    <header class="app-header">
+        <div class="logo-area">
+            <i class="fas fa-file-pdf" style="color: #0f2b4b; font-size: 1.6rem;"></i>
+            <span>PDF<span style="font-weight: 300;">工作室</span> Pro</span>
+            <span class="badge" style="margin-left: 0.5rem;">v0.9 · browser</span>
+        </div>
+        <div class="toolbar">
+            <button class="tool-btn" id="open-pdf-btn" data-tooltip="Open PDF (Ctrl+O)"><i class="fas fa-folder-open"></i> Open</button>
+            <button class="tool-btn" id="create-pdf-btn" data-tooltip="New from image/text"><i class="fas fa-file-circle-plus"></i> Create</button>
+            <button class="tool-btn" id="save-pdf-btn" data-tooltip="Save / Export"><i class="fas fa-download"></i> Export</button>
+            <button class="tool-btn" id="undo-btn" data-tooltip="Undo (Ctrl+Z)"><i class="fas fa-undo-alt"></i></button>
+            <button class="tool-btn" id="redo-btn" data-tooltip="Redo (Ctrl+Y)"><i class="fas fa-redo-alt"></i></button>
+            <button class="tool-btn" id="print-btn" data-tooltip="Print A4"><i class="fas fa-print"></i> Print</button>
+        </div>
+    </header>
+
+    <!-- Main workspace: left tools + center canvas + right properties -->
+    <div class="workspace">
+        <!-- LEFT PANEL: Tools and Thumbnails -->
+        <div class="left-panel">
+            <div class="tools-section">
+                <h4><i class="fas fa-pencil-alt" style="margin-right: 0.4rem;"></i> TOOLS</h4>
+                <div class="tools-grid">
+                    <div class="tool-icon active" data-tooltip="Select (V)" id="tool-select"><i class="fas fa-mouse-pointer"></i><span>Select</span></div>
+                    <div class="tool-icon" data-tooltip="Hand (H)" id="tool-hand"><i class="fas fa-hand"></i><span>Hand</span></div>
+                    <div class="tool-icon" data-tooltip="Highlight" id="tool-highlight"><i class="fas fa-highlighter"></i><span>Highlight</span></div>
+                    <div class="tool-icon" data-tooltip="Underline" id="tool-underline"><i class="fas fa-underline"></i><span>Underline</span></div>
+                    <div class="tool-icon" data-tooltip="Strike-out" id="tool-strike"><i class="fas fa-strikethrough"></i><span>Strike</span></div>
+                    <div class="tool-icon" data-tooltip="Comment/Sticky" id="tool-comment"><i class="fas fa-comment"></i><span>Comment</span></div>
+                    <div class="tool-icon" data-tooltip="Free draw" id="tool-draw"><i class="fas fa-paint-brush"></i><span>Draw</span></div>
+                    <div class="tool-icon" data-tooltip="Shape" id="tool-shape"><i class="fas fa-shapes"></i><span>Shape</span></div>
+                    <div class="tool-icon" data-tooltip="Image" id="tool-image"><i class="fas fa-image"></i><span>Image</span></div>
+                    <div class="tool-icon" data-tooltip="Stamp" id="tool-stamp"><i class="fas fa-stamp"></i><span>Stamp</span></div>
+                    <div class="tool-icon" data-tooltip="Signature" id="tool-signature"><i class="fas fa-pen-fancy"></i><span>Sign</span></div>
+                    <div class="tool-icon" data-tooltip="Form field" id="tool-form"><i class="fas fa-check-square"></i><span>Forms</span></div>
+                </div>
+            </div>
+            <div class="thumbnails-section">
+                <h4><i class="fas fa-copy" style="margin-right: 0.4rem;"></i> PAGES · MOCK</h4>
+                <div class="thumbnails-list" id="thumbnail-list">
+                    <!-- Dynamic thumbnails injected via JS -->
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem;">
+                    <button class="tool-btn" style="flex:1;" id="add-page-btn" data-tooltip="Add page (mock)"><i class="fas fa-plus"></i></button>
+                    <button class="tool-btn" style="flex:1;" id="delete-page-btn" data-tooltip="Remove page (mock)"><i class="fas fa-trash"></i></button>
+                    <button class="tool-btn" style="flex:1;" id="rotate-page-btn" data-tooltip="Rotate 90° (mock)"><i class="fas fa-rotate-right"></i></button>
+                    <button class="tool-btn" style="flex:1;" id="duplicate-page-btn" data-tooltip="Duplicate (mock)"><i class="fas fa-copy"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: PDF CANVAS + NAVIGATION -->
+        <div class="center-panel">
+            <div class="canvas-toolbar">
+                <div class="page-controls">
+                    <button class="tool-btn" id="prev-page" data-tooltip="Previous page"><i class="fas fa-chevron-left"></i></button>
+                    <span style="font-weight: 500; margin: 0 0.2rem;"><span id="page-num">1</span> / <span id="page-count">1</span></span>
+                    <button class="tool-btn" id="next-page" data-tooltip="Next page"><i class="fas fa-chevron-right"></i></button>
+                    <button class="tool-btn" id="zoom-out" data-tooltip="Zoom out"><i class="fas fa-search-minus"></i></button>
+                    <button class="tool-btn" id="zoom-in" data-tooltip="Zoom in"><i class="fas fa-search-plus"></i></button>
+                    <button class="tool-btn" id="fit-page" data-tooltip="Fit to width/A4"><i class="fas fa-arrows-alt-h"></i></button>
+                </div>
+                <div>
+                    <span id="ocr-status" style="color: #4b5563; font-size:0.8rem;"></span>
+                </div>
+            </div>
+            <div class="canvas-container">
+                <canvas id="pdf-canvas"></canvas>
+                <!-- overlay for mock annotations, signatures (placeholder) -->
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Contextual Properties / Security / OCR / Forms -->
+        <div class="right-panel">
+            <div class="prop-group">
+                <div class="prop-title"><i class="fas fa-sliders-h"></i> PROPERTIES (MOCK)</div>
+                <div style="display:flex; flex-direction: column; gap:0.7rem;">
+                    <div><span style="font-weight:600;">Current tool:</span> <span id="current-tool-label">Select</span></div>
+                    <div><span style="font-weight:600;">Page size:</span> A4 (sim.)</div>
+                    <div><span style="font-weight:600;">Color space:</span> RGB</div>
+                    <hr>
+                    <button class="tool-btn" id="ocr-button" style="background:#f1f5f9;"><i class="fas fa-eye"></i> OCR this page</button>
+                    <button class="tool-btn" id="redact-btn" style="background:#fff1f0;"><i class="fas fa-redo-alt" style="color:#b91c1c;"></i> Redact (mock)</button>
+                </div>
+            </div>
+            <div class="prop-group">
+                <div class="prop-title"><i class="fas fa-lock"></i> SECURITY & FORMS</div>
+                <button class="tool-btn" style="width:100%; margin-bottom:8px;" id="password-protect"><i class="fas fa-lock"></i> Set password (mock)</button>
+                <button class="tool-btn" style="width:100%; margin-bottom:8px;" id="set-permissions"><i class="fas fa-shield"></i> Permissions (mock)</button>
+                <button class="tool-btn" style="width:100%;" id="add-signature"><i class="fas fa-signature"></i> Draw signature (mock)</button>
+                <hr>
+                <button class="tool-btn" id="fill-form"><i class="fas fa-file-signature"></i> Fill form fields (mock)</button>
+            </div>
+            <div class="prop-group">
+                <div class="prop-title"><i class="fas fa-file-export"></i> EXPORT (MOCK)</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="tool-btn" id="export-word"><i class="fas fa-file-word"></i> Word</button>
+                    <button class="tool-btn" id="export-excel"><i class="fas fa-file-excel"></i> Excel</button>
+                    <button class="tool-btn" id="export-image"><i class="fas fa-file-image"></i> PNG</button>
+                </div>
+            </div>
+            <div class="prop-group">
+                <div class="prop-title">MERGE / SPLIT (MOCK)</div>
+                <button class="tool-btn" id="merge-pdf"><i class="fas fa-merge"></i> Merge PDF</button>
+                <button class="tool-btn" id="split-pdf"><i class="fas fa-split"></i> Split range</button>
+            </div>
+            <div style="color:#62748b; font-size:0.7rem; margin-top:1rem;">
+                <i class="fas fa-flask"></i> Production foundation · Placeholder APIs where browser-limited. See code comments.
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file inputs for open / create -->
+    <input type="file" id="file-pdf" accept="application/pdf" style="display: none;">
+    <input type="file" id="file-image" accept="image/*" style="display: none;">
+
+    <script>
+        // =========================================================================
+        //  PREMIER PDF EDITOR – CLIENT‑SIDE FOUNDATION (PRODUCTION MOCK)
+        //  Uses PDF.js for real rendering; all advanced features are placeholders 
+        //  clearly marked as [MOCK]. OCR implemented with Tesseract.js.
+        //  UI reflects modern desktop-grade experience with tooltips, icons, layout.
+        // =========================================================================
+
+        (function(){
+            "use strict";
+
+            // --- STATE & GLOBALS ---
+            const pdfState = {
+                pdfDoc: null,
+                pageNum: 1,
+                pageCount: 0,
+                scale: 1.2,
+                canvas: document.getElementById('pdf-canvas'),
+                ctx: document.getElementById('pdf-canvas').getContext('2d'),
+                fileInput: document.getElementById('file-pdf'),
+                thumbnailList: document.getElementById('thumbnail-list'),
+                currentTool: 'select',
+                // Undo/redo mock stack
+                undoStack: [],
+                redoStack: [],
+                // A4 simulation (for print layout)
+                a4Active: false
+            };
+
+            // UI elements
+            const pageNumSpan = document.getElementById('page-num');
+            const pageCountSpan = document.getElementById('page-count');
+            const ocrStatus = document.getElementById('ocr-status');
+
+            // --- PDF.JS INIT ---
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+            // --- RENDER PAGE (REAL) ---
+            function renderPage(num) {
+                if (!pdfState.pdfDoc) return;
+                pdfState.pdfDoc.getPage(num).then(page => {
+                    const viewport = page.getViewport({ scale: pdfState.scale });
+                    pdfState.canvas.height = viewport.height;
+                    pdfState.canvas.width = viewport.width;
+                    const renderContext = {
+                        canvasContext: pdfState.ctx,
+                        viewport: viewport
+                    };
+                    page.render(renderContext);
+                });
+                pageNumSpan.textContent = num;
+            }
+
+            // --- LOAD PDF (REAL) ---
+            function loadPdfFromArrayBuffer(buffer) {
+                pdfjsLib.getDocument({ data: buffer }).promise.then(pdf => {
+                    pdfState.pdfDoc = pdf;
+                    pdfState.pageCount = pdf.numPages;
+                    pdfState.pageNum = 1;
+                    pageCountSpan.textContent = pdfState.pageCount;
+                    renderPage(pdfState.pageNum);
+                    generateThumbnails(pdf);    // mock style – but actually generates thumbnails using pdf.js
+                }).catch(err => {
+                    alert('Failed to load PDF: ' + err);
+                });
+            }
+
+            // --- THUMBNAILS (REAL RENDERING SMALL) ---
+            function generateThumbnails(pdf) {
+                const thumbContainer = document.getElementById('thumbnail-list');
+                thumbContainer.innerHTML = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    pdf.getPage(i).then(page => {
+                        const scale = 0.15;
+                        const viewport = page.getViewport({ scale });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        canvas.className = 'thumb-canvas';
+                        page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise.then(() => {
+                            const thumbItem = document.createElement('div');
+                            thumbItem.className = 'thumbnail-item' + (i === pdfState.pageNum ? ' active' : '');
+                            thumbItem.dataset.page = i;
+                            thumbItem.innerHTML = `<span style="font-size:0.7rem;">${i}</span>`;
+                            thumbItem.prepend(canvas);
+                            thumbItem.addEventListener('click', (e) => {
+                                pdfState.pageNum = i;
+                                renderPage(i);
+                                // update active
+                                document.querySelectorAll('.thumbnail-item').forEach(el => el.classList.remove('active'));
+                                thumbItem.classList.add('active');
+                            });
+                            thumbContainer.appendChild(thumbItem);
+                        });
+                    });
+                }
+            }
+
+            // --- OPEN PDF (REAL) ---
+            document.getElementById('open-pdf-btn').addEventListener('click', () => {
+                pdfState.fileInput.click();
+            });
+            pdfState.fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => loadPdfFromArrayBuffer(event.target.result);
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+
+            // --- NAVIGATION (REAL) ---
+            document.getElementById('prev-page').addEventListener('click', () => {
+                if (!pdfState.pdfDoc) return;
+                if (pdfState.pageNum > 1) {
+                    pdfState.pageNum--;
+                    renderPage(pdfState.pageNum);
+                }
+            });
+            document.getElementById('next-page').addEventListener('click', () => {
+                if (!pdfState.pdfDoc) return;
+                if (pdfState.pageNum < pdfState.pageCount) {
+                    pdfState.pageNum++;
+                    renderPage(pdfState.pageNum);
+                }
+            });
+
+            // --- ZOOM (REAL) ---
+            document.getElementById('zoom-in').addEventListener('click', () => {
+                pdfState.scale += 0.2;
+                renderPage(pdfState.pageNum);
+            });
+            document.getElementById('zoom-out').addEventListener('click', () => {
+                if (pdfState.scale > 0.4) pdfState.scale -= 0.2;
+                renderPage(pdfState.pageNum);
+            });
+
+            // ========== MOCK / PLACEHOLDER IMPLEMENTATIONS ==========
+            // [MOCK] All advanced features below are clearly marked and simulate production intent.
+
+            // --- UNDO/REDO MOCK STACK ---
+            let undoMock = []; let redoMock = [];
+            document.getElementById('undo-btn').addEventListener('click', () => {
+                alert('[MOCK] Undo last action (stack simulation).');
+            });
+            document.getElementById('redo-btn').addEventListener('click', () => {
+                alert('[MOCK] Redo last undone action.');
+            });
+
+            // --- CREATE PDF FROM IMAGE/TEXT (MOCK using jsPDF) ---
+            document.getElementById('create-pdf-btn').addEventListener('click', () => {
+                // [MOCK] Creates a simple PDF with sample text via jspdf and loads it.
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('This is a mock PDF created from editor.', 20, 20);
+                doc.text('Image embedding is mocked.', 20, 40);
+                const pdfOutput = doc.output('arraybuffer');
+                loadPdfFromArrayBuffer(pdfOutput);
+            });
+
+            // --- SAVE / EXPORT (MOCK) ---
+            document.getElementById('save-pdf-btn').addEventListener('click', () => {
+                alert('[MOCK] Export PDF: Would trigger download of current PDF with modifications.');
+            });
+
+            // --- TOOL SELECTION (UI only) ---
+            const toolIcons = document.querySelectorAll('.tool-icon');
+            toolIcons.forEach(tool => {
+                tool.addEventListener('click', function() {
+                    toolIcons.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    pdfState.currentTool = this.innerText.trim().toLowerCase() || 'select';
+                    document.getElementById('current-tool-label').innerText = this.innerText.trim();
+                });
+            });
+
+            // --- OCR (REAL using Tesseract on canvas) ---
+            document.getElementById('ocr-button').addEventListener('click', async function() {
+                if (!pdfState.pdfDoc) { alert('Load a PDF first.'); return; }
+                ocrStatus.innerText = '⏳ OCR in progress...';
+                try {
+                    const canvas = pdfState.canvas;
+                    const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
+                        logger: m => { if (m.status === 'recognizing text') ocrStatus.innerText = `OCR: ${(m.progress*100).toFixed(0)}%`; }
+                    });
+                    ocrStatus.innerText = '✅ OCR done.';
+                    alert(`[OCR RESULT - first 100 chars]:\n${text.substring(0,100)}...`);
+                } catch(e) {
+                    ocrStatus.innerText = '❌ OCR failed.';
+                    alert('OCR mock fallback: ' + e);
+                }
+            });
+
+            // --- REDACTION MOCK ---
+            document.getElementById('redact-btn').addEventListener('click', () => {
+                alert('[MOCK] Redact tool: Draw redaction rectangle (permanent removal simulated).');
+            });
+
+            // --- PASSWORD / PERMISSIONS MOCK ---
+            document.getElementById('password-protect').addEventListener('click', () => {
+                alert('[MOCK] Set password & encryption. In browser, would use PDF encryption library (mock).');
+            });
+            document.getElementById('set-permissions').addEventListener('click', () => {
+                alert('[MOCK] Set permissions: printing, copying, editing (client-side simulation).');
+            });
+
+            // --- SIGNATURE MOCK ---
+            document.getElementById('add-signature').addEventListener('click', () => {
+                alert('[MOCK] Open signature dialog: draw, type, or upload. Then placed on canvas.');
+            });
+
+            // --- FORM FILL MOCK ---
+            document.getElementById('fill-form').addEventListener('click', () => {
+                alert('[MOCK] Fill interactive form fields, add date/initials (mock).');
+            });
+
+            // --- EXPORT WORD/EXCEL/IMAGE MOCK ---
+            document.getElementById('export-word').addEventListener('click', () => {
+                alert('[MOCK] Export as Word .docx (placeholder).');
+            });
+            document.getElementById('export-excel').addEventListener('click', () => {
+                alert('[MOCK] Export as Excel .xlsx (placeholder).');
+            });
+            document.getElementById('export-image').addEventListener('click', () => {
+                alert('[MOCK] Export current page as PNG.');
+            });
+
+            // --- MERGE / SPLIT MOCK ---
+            document.getElementById('merge-pdf').addEventListener('click', () => {
+                alert('[MOCK] Merge multiple PDFs: select additional file.');
+            });
+            document.getElementById('split-pdf').addEventListener('click', () => {
+                alert('[MOCK] Split by page range (simulated).');
+            });
+
+            // --- PAGE MANIPULATION MOCK (add, delete, rotate, duplicate) ---
+            document.getElementById('add-page-btn').addEventListener('click', () => {
+                alert('[MOCK] Add blank page (A4).');
+            });
+            document.getElementById('delete-page-btn').addEventListener('click', () => {
+                alert('[MOCK] Delete current page.');
+            });
+            document.getElementById('rotate-page-btn').addEventListener('click', () => {
+                alert('[MOCK] Rotate page 90° clockwise.');
+            });
+            document.getElementById('duplicate-page-btn').addEventListener('click', () => {
+                alert('[MOCK] Duplicate current page.');
+            });
+
+            // --- PRINT / A4 MOCK ---
+            document.getElementById('print-btn').addEventListener('click', () => {
+                alert('[MOCK] Print with A4 layout, margin control. Would trigger browser print.');
+            });
+            document.getElementById('fit-page').addEventListener('click', () => {
+                pdfState.scale = 1.0; // simplistic mock
+                renderPage(pdfState.pageNum);
+                alert('[MOCK] Fit to A4 width (simulated).');
+            });
+
+            // --- KEYBOARD SHORTCUTS (MODERN) ---
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'o') {
+                    e.preventDefault();
+                    document.getElementById('open-pdf-btn').click();
+                }
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    document.getElementById('undo-btn').click();
+                }
+                if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    document.getElementById('redo-btn').click();
+                }
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    document.getElementById('save-pdf-btn').click();
+                }
+                if (e.ctrlKey && e.key === 'p') {
+                    e.preventDefault();
+                    document.getElementById('print-btn').click();
+                }
+                // Tool shortcuts: v, h, etc (mock)
+            });
+
+            // --- load sample PDF on start (for demonstration) ---
+            // Use a simple PDF generated via jsPDF as a default demo.
+            (function loadSample() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Premier PDF Editor — Sample document', 20, 20);
+                doc.text('Open a PDF or create new. OCR, annotations are mocked.', 20, 40);
+                doc.text('Right panel controls many PRO features (placeholders).', 20, 60);
+                const pdfOutput = doc.output('arraybuffer');
+                loadPdfFromArrayBuffer(pdfOutput);
+            })();
+
+            // Additional mock: search text (simple prompt)
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'f') {
+                    e.preventDefault();
+                    alert('[MOCK] Search text across pages (placeholder).');
+                }
+            });
+
+            // Dynamic tooltip for current tool
+            // All set.
+        })();
+    </script>
+
+    <!-- 
+        ============================================================================
+        PRODUCTION COMMENTARY:
+        - Real PDF rendering via PDF.js, file open, thumbnails, zoom, navigation.
+        - OCR is real using Tesseract.js on canvas (user consent implied).
+        - All advanced features (edit existing text/images, annotations persistence, 
+          forms, password, permissions, redaction, merge, split, export to Office, 
+          deterministic pagination) are MOCK PLACEHOLDERS due to browser limitations.
+        - Code is modularized within IIFE, state object, ready to extend.
+        - Premium UI with glassmorphism, tooltips, keyboard shortcuts.
+        - A4 print simulation via button.
+        - Extensible undo/redo stack foundation.
+        ============================================================================
+    -->
+</body>
+</html>
