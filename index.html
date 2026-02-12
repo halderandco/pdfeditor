@@ -579,6 +579,19 @@
             // --- PDF.JS INIT ---
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+            // --- Helper: update active thumbnail based on current page ---
+            function updateActiveThumbnail(pageNum) {
+                const thumbItems = document.querySelectorAll('.thumbnail-item');
+                thumbItems.forEach(item => {
+                    const page = parseInt(item.dataset.page, 10);
+                    if (page === pageNum) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+            }
+
             // --- RENDER PAGE (REAL) ---
             function renderPage(num) {
                 if (!pdfState.pdfDoc) return;
@@ -593,6 +606,8 @@
                     page.render(renderContext);
                 });
                 pageNumSpan.textContent = num;
+                // Sync active thumbnail
+                updateActiveThumbnail(num);
             }
 
             // --- LOAD PDF (REAL) ---
@@ -613,12 +628,16 @@
             async function generateThumbnails(pdf) {
                 const thumbContainer = document.getElementById('thumbnail-list');
                 thumbContainer.innerHTML = '';
+                
+                // First fetch all pages in order
                 const pages = [];
                 for (let i = 1; i <= pdf.numPages; i++) {
                     pages.push(pdf.getPage(i));
                 }
                 const resolvedPages = await Promise.all(pages);
-                resolvedPages.forEach((page, idx) => {
+                
+                // Prepare an array of rendering promises to ensure all thumbnails are rendered before appending
+                const renderPromises = resolvedPages.map((page, idx) => {
                     const i = idx + 1;
                     const scale = 0.15;
                     const viewport = page.getViewport({ scale });
@@ -626,21 +645,34 @@
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     canvas.className = 'thumb-canvas';
-                    page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise.then(() => {
-                        const thumbItem = document.createElement('div');
-                        thumbItem.className = 'thumbnail-item' + (i === pdfState.pageNum ? ' active' : '');
-                        thumbItem.dataset.page = i;
-                        thumbItem.innerHTML = `<span style="font-size:0.7rem;">${i}</span>`;
-                        thumbItem.prepend(canvas);
-                        thumbItem.addEventListener('click', (e) => {
-                            pdfState.pageNum = i;
-                            renderPage(i);
-                            document.querySelectorAll('.thumbnail-item').forEach(el => el.classList.remove('active'));
-                            thumbItem.classList.add('active');
-                        });
-                        thumbContainer.appendChild(thumbItem);
-                    });
+                    
+                    return page.render({ 
+                        canvasContext: canvas.getContext('2d'), 
+                        viewport 
+                    }).promise.then(() => ({ canvas, i }));
                 });
+
+                // Wait for all thumbnails to render completely
+                const results = await Promise.all(renderPromises);
+                
+                // Append in strict page order
+                results.sort((a, b) => a.i - b.i).forEach(({ canvas, i }) => {
+                    const thumbItem = document.createElement('div');
+                    thumbItem.className = 'thumbnail-item';
+                    thumbItem.dataset.page = i;
+                    thumbItem.innerHTML = `<span style="font-size:0.7rem;">${i}</span>`;
+                    thumbItem.prepend(canvas);
+                    
+                    thumbItem.addEventListener('click', (e) => {
+                        pdfState.pageNum = i;
+                        renderPage(i);
+                    });
+                    
+                    thumbContainer.appendChild(thumbItem);
+                });
+                
+                // Set active thumbnail after all are added
+                updateActiveThumbnail(pdfState.pageNum);
             }
 
             // --- OPEN PDF (REAL) ---
@@ -825,7 +857,10 @@
                     e.preventDefault();
                     document.getElementById('print-btn').click();
                 }
-                // Tool shortcuts: v, h, etc (mock)
+                if (e.ctrlKey && e.key === 'f') {
+                    e.preventDefault();
+                    alert('[MOCK] Search text across pages (placeholder).');
+                }
             });
 
             // --- load sample PDF on start (for demonstration) ---
@@ -839,13 +874,6 @@
                 loadPdfFromArrayBuffer(pdfOutput);
             })();
 
-            // Additional mock: search text (simple prompt)
-            document.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 'f') {
-                    e.preventDefault();
-                    alert('[MOCK] Search text across pages (placeholder).');
-                }
-            });
         })();
     </script>
 </body>
